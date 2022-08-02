@@ -39,7 +39,7 @@ LOCK = "lock"
 REP = "rep[a-z]*"
 REX = "rex(?:\.[a-zA-Z]+)?"
 SCALAR = "(?:(?:[+-]\s*)?(?:[0-9][0-9a-fA-F]*|0x[0-9a-fA-F]+))"
-IMMEDIATE = "(?:%s[hb]?)" %(SCALAR)
+IMMEDIATE = f"(?:{SCALAR}[hb]?)"
 REG = "(?:%[a-zA-Z][a-zA-Z0-9]*)"
 SYM = "(?:[_a-zA-Z][_a-zA-Z0-9]*(?:@[0-9a-zA-Z]+)?)"
 LABEL = "(?:[._a-zA-Z0-9]+)"
@@ -49,7 +49,7 @@ CONST = "(?:(?:%s|%s|%s)(?:\s*[/*+-]\s*(?:%s|%s|%s))*)" %(SYM, SCALAR, LABEL, SY
 OFFSET = "(?:%s|%s|%s\s*:\s*(?:%s|%s|))" %(CONST, SYM, REG, CONST, SYM)
 MEMORYOP = "(?:(?:\(*%s*\)*)*\(%s\s*(?:,\s*%s*\s*,\s*%s*\s*)*\))" %(CONST, REG, REG, CONST)
 MEMORYOP = "(?:(?:\(*%s\)*)*\(%s\s*(?:,\s*%s*\s*,\s*%s*\s*)*\))" %(CONST, REG, REG, CONST)
-ANYOP = "(?:%s|%s|%s|%s|%s)" %(MEMORYOP, IMMEDIATE, REG, SYM, LABEL)
+ANYOP = f"(?:{MEMORYOP}|{IMMEDIATE}|{REG}|{SYM}|{LABEL})"
 MEMORYSRC = "(?:%s,\s*)" %(MEMORYOP)
 MEMORYANY = "(?:%s,\s*)%s*(?:\s*,\s*%s)*" % (MEMORYOP, ANYOP, ANYOP)
 ATTSTAR = "\*"
@@ -151,29 +151,25 @@ REG_INDBR = "(?:%s%s(call|jmp)[a-z]*\s+%s%s)" %(SEP, PFX, ATTSTAR, REG)
 # File Operations - read/write
 #
 def read_file(sfile):
-    f = open(sfile, 'r')
-    lines = f.readlines()
-    f.close()
+    with open(sfile, 'r') as f:
+        lines = f.readlines()
     return lines
 
 def write_file(tfile, lines):
-    f = open(tfile, 'w')
-    for line in lines:
-        f.write(line)
-    f.close()
+    with open(tfile, 'w') as f:
+        for line in lines:
+            f.write(line)
     return
 
 def insert_lfence(mitigation_level, infile, outfile):
-    pattern = '|'.join('(?:%s)' % l for l in LFENCE)
+    pattern = '|'.join(f'(?:{l})' for l in LFENCE)
     lines = read_file(infile)
     outputs = lines
-    for i in range(0, len(lines)):
+    for i in range(len(lines)):
         if lines[i].strip().startswith('#') or lines[i].strip().startswith('.'):
             continue
         if mitigation_level == 1:
-            # harden loads
-            m = re.search(pattern, lines[i])
-            if m:
+            if m := re.search(pattern, lines[i]):
                 j = i
                 while j > 0:
                     j = j + 1
@@ -183,21 +179,15 @@ def insert_lfence(mitigation_level, infile, outfile):
                     load_mitigation = "    lfence\n"
                     outputs[i] = outputs[i] + load_mitigation
                     continue
-            # harden ret
-            m = re.search(RET, lines[i])
-            if m:
+            if m := re.search(RET, lines[i]):
                 ret_mitigation = "    notq (%rsp)\n    notq (%rsp)\n    lfence\n"
                 outputs[i] = ret_mitigation + outputs[i]
         elif mitigation_level == 2:
-            # harden ret
-            m = re.search(RET, lines[i])
-            if m:
+            if m := re.search(RET, lines[i]):
                 ret_mitigation = "    notq (%rsp)\n    notq (%rsp)\n    lfence\n"
                 outputs[i] = ret_mitigation + outputs[i]
                 continue
-            # harden indirect branches
-            m = re.search(REG_INDBR, lines[i])
-            if m:
+            if m := re.search(REG_INDBR, lines[i]):
                 j = i
                 while j > 0:
                     j = j - 1
@@ -205,8 +195,7 @@ def insert_lfence(mitigation_level, infile, outfile):
                         break
                 if not outputs[j].split('\n')[-2].strip().startswith('lfence'):
                     outputs[i] = "    lfence\n" + outputs[i]
-            m = re.search(MEM_INDBR, lines[i])
-            if m:
+            if m := re.search(MEM_INDBR, lines[i]):
                 print ("Warning: indirect branch with memory operand, line %d" % i)
 
     write_file(outfile, outputs)
@@ -225,7 +214,7 @@ def parse_options():
 
 def get_src_index(options):
     src_index = -1
-    for i in range(0,len(options)):
+    for i in range(len(options)):
         if options[i] == '-s':
             if(src_index != -1):
                 print ('source files conflict')
@@ -238,7 +227,7 @@ def get_src_index(options):
 
 def get_dst_index(options):
     dst_index = -1
-    for i in range(0,len(options)):
+    for i in range(len(options)):
         if options[i] == '-o':
             if(dst_index != -1):
                 print ('target files conflict')

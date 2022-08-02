@@ -114,7 +114,7 @@ class oe_debug_enclave_t:
         self.tcs = []
         self.num_tcs = read_int_from_memory(addr + self.OFFSETOF_TCS_COUNT, self.SIZEOF_TCS_COUNT)
         tcs_ptr = read_int_from_memory(addr + self.OFFSETOF_TCS_ARRAY, self.SIZEOF_TCS_ARRAY)
-        for i in range(0, self.num_tcs):
+        for _ in range(self.num_tcs):
             tcs = read_int_from_memory(tcs_ptr, 8) # sizeof pointer is hard-coded to 8
             self.tcs.append(tcs)
             tcs_ptr += 8
@@ -141,12 +141,10 @@ g_enclave_list_parsed = False
 def get_inferior():
     """Get current inferior"""
     try:
-        if len(gdb.inferiors()) == 0:
-            print ("No gdb inferior could be found.")
-            return -1
-        else:
-            inferior = gdb.inferiors()[0]
-            return inferior
+        if len(gdb.inferiors()) != 0:
+            return gdb.inferiors()[0]
+        print ("No gdb inferior could be found.")
+        return -1
     except AttributeError:
         print ("This gdb's python support is too old, please update first.")
         exit()
@@ -159,8 +157,7 @@ def read_from_memory(addr, size):
         print ("Error happens in read_from_memory: addr = {0:x}".format(int(addr)))
         return None
     try:
-        string = inferior.read_memory(addr, size)
-        return string
+        return inferior.read_memory(addr, size)
     except gdb.MemoryError:
         print ("Can't access memory at {0:x}.".format(int(addr)))
         return None
@@ -188,9 +185,8 @@ def target_path_to_host_path(target_path):
     path = strpath.split()[-1]
     strlen = len(path)
     if strlen != 1:
-        path = path[0:strlen-1]
-    host_path = path + "/" + so_name
-    return host_path
+        path = path[:strlen-1]
+    return f"{path}/{so_name}"
 
 def load_enclave_symbol(enclave_path, enclave_base_addr):
     """Load enclave symbol file into current debug session"""
@@ -232,7 +228,7 @@ def unload_enclave_symbol(enclave_path, enclave_base_addr):
 
 def set_tcs_debug_flag(tcs_addr):
     string = read_from_memory(tcs_addr + 8, 4)
-    if string == None:
+    if string is None:
         return False
     flag = struct.unpack('I', string)[0]
     flag |= 1
@@ -257,12 +253,12 @@ def enable_oeenclave_debug(oe_enclave_addr):
 
     # Check if debugging is enabled.
     if enclave.debug == 0:
-        print ("oegdb: Debugging not enabled for enclave %s" % enclave.path)
+        print(f"oegdb: Debugging not enabled for enclave {enclave.path}")
         return False
 
     # Check if the enclave is loaded in simulation mode.
     if enclave.simulate != 0:
-        print ("oegdb: Enclave %s loaded in simulation mode" % enclave.path)
+        print(f"oegdb: Enclave {enclave.path} loaded in simulation mode")
 
     # Load symbols for the enclave
     if load_enclave_symbol(enclave.path, enclave.base_address) != 1:
@@ -303,7 +299,7 @@ class ModuleLoadedBreakpoint(gdb.Breakpoint):
         debug_module = oe_debug_module_t(module_addr)
         load_enclave_symbol(debug_module.path, debug_module.base_address)
         if VERBOSE:
-            print ("oegdb: Loaded enclave module %s" % debug_module.path)
+            print(f"oegdb: Loaded enclave module {debug_module.path}")
         return False
 
 class ModuleUnloadedBreakpoint(gdb.Breakpoint):
@@ -314,7 +310,7 @@ class ModuleUnloadedBreakpoint(gdb.Breakpoint):
         module_addr = int(gdb.parse_and_eval("$rdi"))
         debug_module = oe_debug_module_t(module_addr)
         unload_enclave_symbol(debug_module.path, debug_module.base_address)
-        print ("oegdb: Unloaded enclave module %s" % debug_module.path)
+        print(f"oegdb: Unloaded enclave module {debug_module.path}")
         return False
 
 def new_objfile_handler(event):
@@ -347,7 +343,7 @@ def new_objfile_handler(event):
 
                 print ("oegdb: %d enclaves in global enclave list." % len(enclaves))
                 for (enclave_addr, enclave_path) in enclaves:
-                    print("oegdb: Reading symbols from %s ..." % enclave_path, end='')
+                    print(f"oegdb: Reading symbols from {enclave_path} ...", end='')
                     enable_oeenclave_debug(enclave_addr, enclave_path)
                     print("done.")
         except:
@@ -387,10 +383,10 @@ def oe_debugger_cleanup():
     global g_enclave_list_parsed
     global g_loaded_modules
     for m in g_loaded_modules:
-        gdb_cmd = "remove-symbol-file -a %s" % m[2]
+        gdb_cmd = f"remove-symbol-file -a {m[2]}"
         if VERBOSE:
             print (gdb_cmd)
-        gdb.execute("remove-symbol-file -a %s" % m[2], False, True)
+        gdb.execute(f"remove-symbol-file -a {m[2]}", False, True)
     g_loaded_modules.clear()
     g_enclave_list_parsed = False
     return

@@ -112,7 +112,7 @@ class oe_debug_enclave_t:
         self.tcs = []
         self.num_tcs = read_int_from_memory(addr + self.OFFSETOF_TCS_COUNT, self.SIZEOF_TCS_COUNT)
         tcs_ptr = read_int_from_memory(addr + self.OFFSETOF_TCS_ARRAY, self.SIZEOF_TCS_ARRAY)
-        for i in range(0, self.num_tcs):
+        for _ in range(self.num_tcs):
             tcs = read_int_from_memory(tcs_ptr, 8) # sizeof pointer is hard-coded to 8
             self.tcs.append(tcs)
             tcs_ptr += 8
@@ -170,16 +170,15 @@ def read_from_memory(addr, size):
     # that's why use system call to read memory
     pid = process.GetProcessID()
 
-    fd = os.open("/proc/" + str(pid) + "/mem", os.O_RDONLY)
+    fd = os.open(f"/proc/{str(pid)}/mem", os.O_RDONLY)
     os.lseek(fd, int(addr), 0)
     memory = os.read(fd, size)
     os.close(fd)
 
     if memory != -1:
         return memory
-    else:
-        print ("Can't access memory at {0:x}.".format(int(addr)) + "\n" + str(os.error))
-        return None
+    print ("Can't access memory at {0:x}.".format(int(addr)) + "\n" + str(os.error))
+    return None
 
 def read_int_from_memory(addr, size):
     mv = read_from_memory(addr, size)
@@ -191,14 +190,17 @@ def load_enclave_symbol(enclave_path, enclave_base_addr):
     if os.path.exists(enclave_path) == True:
         enclave_path = os.path.abspath(enclave_path)
     else:
-        print("Cannot find enclave at " + enclave_path)
+        print(f"Cannot find enclave at {enclave_path}")
         return False
 
-    lldb.debugger.HandleCommand("target modules add " + enclave_path)
-    lldb.debugger.HandleCommand("target modules load --file " + enclave_path
-                                + " -s " + str(enclave_base_addr))
+    lldb.debugger.HandleCommand(f"target modules add {enclave_path}")
+    lldb.debugger.HandleCommand(
+        (f"target modules load --file {enclave_path}" + " -s ")
+        + str(enclave_base_addr)
+    )
 
-    print("oelldb: Loaded symbols for %s" % enclave_path)
+
+    print(f"oelldb: Loaded symbols for {enclave_path}")
 
     # Store the oe_enclave address to global set that will be cleanup on exit.
     global g_loaded_oe_enclave_addrs
@@ -209,7 +211,7 @@ def unload_enclave_symbol(enclave_path, enclave_base_addr):
     if os.path.exists(enclave_path) == True:
         enclave_path = os.path.abspath(enclave_path)
     else:
-        print("Cannot find enclave at " + enclave_path)
+        print(f"Cannot find enclave at {enclave_path}")
         return
 
     target = lldb.debugger.GetSelectedTarget()
@@ -228,15 +230,14 @@ def set_tcs_debug_flag(tcs_addr):
 
     process = lldb.debugger.GetSelectedTarget().GetProcess()
     pid = process.GetProcessID();
-    fd = os.open("/proc/" + str(pid) + "/mem", os.O_WRONLY)
+    fd = os.open(f"/proc/{str(pid)}/mem", os.O_WRONLY)
     os.lseek(fd, int(tcs_addr + 8), 0);
     result = os.write(fd, struct.pack('I', flag));
     os.close(fd)
     if result != -1:
         return True
-    else:
-        print ("Can't access memory at {0:x}.".format(int(addr)) + "\n" + str(os.error))
-        return None
+    print ("Can't access memory at {0:x}.".format(int(addr)) + "\n" + str(os.error))
+    return None
 
 def enable_oeenclave_debug(oe_enclave_addr):
     """For a given OE enclave, load its symbol and enable debug flag for all its TCS"""
@@ -252,12 +253,12 @@ def enable_oeenclave_debug(oe_enclave_addr):
 
     # Check if debugging is enabled.
     if enclave.debug == 0:
-        print ("oelldb: Debugging not enabled for enclave %s" % enclave.path)
+        print(f"oelldb: Debugging not enabled for enclave {enclave.path}")
         return False
 
     # Check if the enclave is loaded in simulation mode.
     if enclave.simulate != 0:
-        print ("oelldb: Enclave %s loaded in simulation mode" % enclave.path)
+        print(f"oelldb: Enclave {enclave.path} loaded in simulation mode")
 
     # Load symbols for the enclave
     if load_enclave_symbol(enclave.path, enclave.base_address) != 1:
@@ -320,16 +321,14 @@ class ModuleLoadedBreakpoint:
     def onHit(frame, bp_loc, dict):
         library_image_addr = frame.FindValue("rdi", lldb.eValueTypeRegister).signed
         library_image = oe_debug_module_t(library_image_addr)
-        if library_image.enclave != 0:
-            load_enclave_symbol(library_image.path, library_image.base_address)
-        elif g_enclave:
-            # If g_enclave is not null, it means that the enclave was
-            # EINITed and processed. It is OK to process region even though
-            # the enclave field is null.
-            load_enclave_symbol(library_image.path, library_image.base_address)
-        elif not is_using_oe(frame):
-            # If debugging a non-OE application, treating this breakpoint as normal
-            # module loading.
+        if (
+            library_image.enclave != 0
+            or library_image.enclave == 0
+            and g_enclave
+            or library_image.enclave == 0
+            and not g_enclave
+            and not is_using_oe(frame)
+        ):
             load_enclave_symbol(library_image.path, library_image.base_address)
         else:
             # For the use case of adding modules through the extra data feature,
@@ -339,7 +338,7 @@ class ModuleLoadedBreakpoint:
             # delay registering modules until after the enclave has been EINITed.
             global g_extra_data_regions
             g_extra_data_regions.append(library_image)
-            print("oelldb: Delaying registration of region %s" % library_image.path)
+            print(f"oelldb: Delaying registration of region {library_image.path}")
         return False
 
 class ModuleUnloadedBreakpoint:

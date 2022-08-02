@@ -21,22 +21,21 @@ if __name__ == "__main__":
     arg_parser.add_argument('--start_address', default="131072", type=str, help="Value for the StartAddress property. Defaults to 131072(0x20000).")
 
     args = arg_parser.parse_args()
-    print("Generating {} ...".format(args.config_file))
-    print("Configuration used: {}".format(args))
+    print(f"Generating {args.config_file} ...")
+    print(f"Configuration used: {args}")
 
-    out_file = open(args.config_file, 'w')
-    out_file.write("Debug={}\n".format(args.debug))
-    out_file.write("NumHeapPages={}\n".format(args.num_heap_pages))
-    out_file.write("NumStackPages={}\n".format(args.num_stack_pages))
-    out_file.write("NumTCS={}\n".format(args.num_tcs))
-    out_file.write("ProductID={}\n".format(args.product_id))
-    out_file.write("SecurityVersion={}\n".format(args.security_version))
-    if args.extended_product_id:
-        out_file.write("ExtendedProductID={}\n".format(args.extended_product_id))
-    if args.family_id:
-        out_file.write("FamilyID={}\n".format(args.family_id))
-    if args.create_zero_base_enclave:
-        out_file.write("CreateZeroBaseEnclave={}\n".format(args.create_zero_base_enclave))
-    if args.start_address:
-        out_file.write("StartAddress={}\n".format(args.start_address))
-    out_file.close()
+    with open(args.config_file, 'w') as out_file:
+        out_file.write(f"Debug={args.debug}\n")
+        out_file.write(f"NumHeapPages={args.num_heap_pages}\n")
+        out_file.write(f"NumStackPages={args.num_stack_pages}\n")
+        out_file.write(f"NumTCS={args.num_tcs}\n")
+        out_file.write(f"ProductID={args.product_id}\n")
+        out_file.write(f"SecurityVersion={args.security_version}\n")
+        if args.extended_product_id:
+            out_file.write(f"ExtendedProductID={args.extended_product_id}\n")
+        if args.family_id:
+            out_file.write(f"FamilyID={args.family_id}\n")
+        if args.create_zero_base_enclave:
+            out_file.write(f"CreateZeroBaseEnclave={args.create_zero_base_enclave}\n")
+        if args.start_address:
+            out_file.write(f"StartAddress={args.start_address}\n")

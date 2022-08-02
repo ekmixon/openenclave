@@ -9,10 +9,10 @@ import sys
 def call_subprocess(cmd, success_message):
     retval = subprocess.call(cmd)
     if retval != 0:
-        print("FAIL: (error:{}) {}".format(retval, cmd))
+        print(f"FAIL: (error:{retval}) {cmd}")
         sys.exit(retval)
     else:
-        print("PASS: {} ({})".format(success_message, cmd))
+        print(f"PASS: {success_message} ({cmd})")
 
 if __name__ == "__main__":
 
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('--pkeyutl-args', default=None, type=str, help="Optional. If provided, sign-and-verify.py will call openssl pkeyutl after digest creation and before oesign. This should specify the input digest, output signature file name and key to use to sign a digest.")
 
     args = arg_parser.parse_args()
-    print("Arguments parsed: {}".format(args))
+    print(f"Arguments parsed: {args}")
 
     # Note that the arguments that take multiple values use a string format `[a,b,...]` that are parsed out
     # into lists separately with strip and split operations. While argparse supports taking variable nargs, it doesn't like
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     if args.digest_args:
         digest_cmd = [args.oesign_path, "digest", "--enclave-image", args.enclave_path]
         digest_cmd.extend(args.digest_args.strip('[]').split(','))
-        print("digest_cmd = {}".format(digest_cmd))
+        print(f"digest_cmd = {digest_cmd}")
         call_subprocess(digest_cmd, "Digest succeeded")
 
     if args.pkeyutl_args:
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     sign_cmd.extend(args.oesign_args.strip('[]').split(','))
     call_subprocess(sign_cmd, "Sign succeeded")
 
-    launch_cmd = [args.host_path, "{}.signed".format(args.enclave_path)]
+    launch_cmd = [args.host_path, f"{args.enclave_path}.signed"]
     call_subprocess(launch_cmd, "Signed enclave test app succeeded")
 
     sys.exit(0)

@@ -8,7 +8,7 @@ def lldb_eval(expr):
     return lldb.debugger.GetSelectedTarget().EvaluateExpression(expr)
 
 def lldb_expr(expr):
-    lldb.debugger.HandleCommand("expr " + expr)
+    lldb.debugger.HandleCommand(f"expr {expr}")
 
 def lldb_read_string(address):
     process = lldb.debugger.GetSelectedTarget().GetProcess()
@@ -22,7 +22,7 @@ def bp_main(frame, bp_loc, dict):
     print("** Hit breakpoint in main")
     argv_1 = lldb_eval("argv[1]")
     enclave = lldb_read_string(int(str(argv_1.value), 16))
-    print("** enclave = " + enclave)
+    print(f"** enclave = {enclave}")
     return False
 
 # Breakpoint in enc.c
@@ -32,7 +32,7 @@ def bp_enc_c_38(frame, bp_loc, dict):
     # Set debugger_test
     lldb_expr("debugger_test=1")
     debugger_test = lldb_eval("debugger_test")
-    print("** debugger_test = %s" % debugger_test.value)
+    print(f"** debugger_test = {debugger_test.value}")
 
     if int(debugger_test.value) != 1:
         print("** Error: failed to set debugger_test")
@@ -52,7 +52,7 @@ def bp_module_c_20(frame, bp_loc, dict):
     if int(is_module_init.value) != 1:
         print("** Error: is_module_init != 1")
         lldb_quit()
-    print("** is_module_init = %s" % is_module_init.value)
+    print(f"** is_module_init = {is_module_init.value}")
     return False
 
 # Breakpoint in module destructor
@@ -71,7 +71,7 @@ def bp_module_c_33(frame, bp_loc, dict):
 def bp_module_c_45(frame, bp_loc, dict):
     lldb_expr(" t = a + b + k")
     t = lldb_eval("t")
-    print("t = %s" % t.value)
+    print(f"t = {t.value}")
     return False
 
 def run_test():
